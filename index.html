@@ -763,7 +763,10 @@ header.top.scrolled{background:rgba(10,8,14,.72)}
 .map3d{position:absolute;inset:0}
 #dmap,.cf-map{background:#0d0b10}
 #dmap{position:absolute;inset:0}
-.mapbox .leaflet-tile-pane,.cf-map .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.85) contrast(.92) saturate(.55) sepia(.25)}
+.mapbox .leaflet-tile-pane,.cf-map .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(1.05) contrast(1.08) saturate(.6) sepia(.2)}
+.gpshelp{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);display:grid;place-items:end center;padding:16px;animation:fade .2s}
+.gh-card{width:min(440px,100%);background:rgba(20,17,24,.96);border:1px solid var(--line);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;margin-bottom:env(safe-area-inset-bottom,0px)}
+.gh-card b{font-size:1.1rem}.gh-card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--muted)}.gh-card ol b{font-size:inherit;color:var(--ink)}
 .map-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 0%,transparent 55%,rgba(7,6,10,.65)),linear-gradient(180deg,rgba(7,6,10,.5),transparent 28%,transparent 75%,rgba(7,6,10,.55));z-index:400}
 .map-top{position:absolute;left:10px;right:10px;top:10px;z-index:500;display:flex;justify-content:center;pointer-events:none}
 .map-chip{pointer-events:auto;background:rgba(16,13,20,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:.78rem;color:var(--muted);text-align:center;box-shadow:0 10px 30px -10px rgba(0,0,0,.8)}
@@ -1629,8 +1632,13 @@ function deliveryMap(slot, d){
         var b=DM.el.querySelector("#locMe"), lbl=b.querySelector("span"), rad=DM.el.querySelector("#mapRadar");
         if(!navigator.geolocation){ rad.classList.add("off"); if(!auto) toast("Localisation indisponible sur cet appareil"); return; }
         b.classList.add("busy"); lbl.textContent="Recherche…"; if(!d.lat) rad.classList.remove("off");
-        navigator.geolocation.getCurrentPosition(function(p){ b.classList.remove("busy"); lbl.textContent="Ma position"; rad.classList.add("off"); place([p.coords.latitude,p.coords.longitude],true); saveLoc(d); },
-          function(){ b.classList.remove("busy"); lbl.textContent="Me localiser"; rad.classList.add("off"); setChip("Localisation refusée : touchez la carte sur votre maison"); if(!auto) toast("Autorisez la localisation dans votre navigateur"); },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+        function ok(p){ b.classList.remove("busy"); lbl.textContent="Ma position"; rad.classList.add("off"); place([p.coords.latitude,p.coords.longitude],true); saveLoc(d); }
+        function fail(e){ b.classList.remove("busy"); lbl.textContent="Réessayer"; rad.classList.add("off");
+          var m=e&&e.code===1?"Localisation bloquée : touchez la carte sur votre maison":e&&e.code===2?"GPS éteint : activez la localisation du téléphone":"Position introuvable : touchez la carte sur votre maison";
+          setChip(m); if(!auto) gpsHelp(e&&e.code); }
+        navigator.geolocation.getCurrentPosition(ok,function(e){
+          if(e&&e.code===3){ navigator.geolocation.getCurrentPosition(ok,fail,{enableHighAccuracy:false,timeout:20000,maximumAge:120000}); return; }
+          fail(e); },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
       }
       DM.el.querySelector("#locMe").onclick=function(){ locate(false); };
       if(d.lat){ place([d.lat,d.lng]); DM.el.querySelector("#mapRadar").classList.add("off"); DM.el.querySelector("#locMe span").textContent="Ma position"; }
@@ -1646,6 +1654,15 @@ function revGeo(ll, d){
     var inp=$("#c-area"); if(inp&&!inp.value.trim()){ inp.value=txt; d.area=txt; }
     store.set("grace-client",d); saveLoc(d);
   }).catch(function(){});
+}
+function gpsHelp(code){
+  var app=/GraceShopApp/.test(navigator.userAgent), ios=/iPhone|iPad/.test(navigator.userAgent);
+  var steps=code===2?'<li>Ouvrez les <b>réglages rapides</b> du téléphone (glissez du haut de l\'écran).</li><li>Activez <b>Localisation</b> (ou GPS).</li><li>Revenez ici et touchez <b>Réessayer</b>.</li>':
+    app?'<li>Ouvrez <b>Paramètres</b> du téléphone → <b>Applications</b> → <b>Grace Shop</b>.</li><li>Touchez <b>Autorisations</b> → <b>Position</b> → <b>Autoriser</b>.</li><li>Vérifiez aussi que la <b>Localisation</b> du téléphone est activée.</li>':
+    ios?'<li>Ouvrez <b>Réglages</b> → <b>Confidentialité</b> → <b>Service de localisation</b>.</li><li>Activez-le, puis choisissez <b>Safari</b> → <b>Lorsque l\'app est active</b>.</li><li>Rechargez la page et touchez <b>Réessayer</b>.</li>':
+    '<li>Touchez le <b>cadenas</b> à gauche de l\'adresse du site (en haut).</li><li>Touchez <b>Autorisations</b> → <b>Position</b> → <b>Autoriser</b>.</li><li>Vérifiez que la <b>Localisation</b> du téléphone est activée, puis touchez <b>Réessayer</b>.</li>';
+  var box=document.createElement("div"); box.className="gpshelp"; box.innerHTML='<div class="gh-card"><b>Activer la localisation</b><ol>'+steps+'</ol><button class="btn primary" type="button">J\'ai compris</button><p class="note">Vous pouvez aussi simplement toucher la carte sur votre maison.</p></div>';
+  document.body.appendChild(box); box.querySelector("button").onclick=function(){ box.remove(); }; box.onclick=function(e){ if(e.target===box) box.remove(); };
 }
 function saveLoc(d){
   store.set("grace-client",d);
@@ -2318,7 +2335,7 @@ function openAccount(view){
   if(draft.lat) leaflet().then(function(L){ var el=$("#accMap"); if(!el) return; var m=L.map(el,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,boxZoom:false,keyboard:false}).setView([draft.lat,draft.lng],16); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(m); L.marker([draft.lat,draft.lng],{icon:pinIcon(L)}).addTo(m); setTimeout(function(){m.invalidateSize()},120); }).catch(function(){});
   $("#accLoc").onclick=function(){ var b=this; if(!navigator.geolocation){ toast("Localisation indisponible"); return; } b.disabled=true; b.textContent="Recherche de votre position…";
     navigator.geolocation.getCurrentPosition(function(p){ draft.lat=+p.coords.latitude.toFixed(6); draft.lng=+p.coords.longitude.toFixed(6); var z=zoneOf([draft.lat,draft.lng]); if(z!=null) draft.zone=z; draft.area=""; revGeo([draft.lat,draft.lng],draft); saveLoc(draft); toast("Position enregistrée ✓"); setTimeout(function(){ openAccount(); },900); },
-      function(){ b.disabled=false; b.textContent="📍 Enregistrer ma position"; toast("Autorisez la localisation dans votre navigateur"); },{enableHighAccuracy:true,timeout:15000}); };
+      function(e){ b.disabled=false; b.textContent="📍 Enregistrer ma position"; gpsHelp(e&&e.code); },{enableHighAccuracy:true,timeout:15000}); };
   $("#saveProf").onclick=function(){ var nm=$("#a-name").value.trim().slice(0,120), ph=$("#a-phone").value.trim().slice(0,30); sb.from("profiles").upsert({id:cloud.user.id,name:nm,phone:ph}).then(function(r){ if(r.error){toast("Enregistrement impossible");return;} cloud.profile.name=nm; cloud.profile.phone=ph; draft.name=nm; draft.phone=ph; accLabel(); toast("Informations enregistrées"); }); };
   $("#logout").onclick=function(){ sb.auth.signOut().then(function(){ closeLayer(); toast("Vous êtes déconnectée"); }); };
 }
