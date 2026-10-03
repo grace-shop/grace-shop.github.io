@@ -789,7 +789,7 @@ header.top.scrolled{background:rgba(10,8,14,.72)}
 .cf-map{position:relative;height:150px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
 .btn.route{display:inline-block;padding:9px 14px;font-size:.84rem;align-self:flex-start}
 
-.map-radar{position:absolute;inset:0;z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;background:radial-gradient(circle at 50% 45%,rgba(30,24,36,.92),rgba(8,6,12,.97));transition:opacity .5s}
+.map-radar{position:absolute;inset:0;z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;background:radial-gradient(circle at 50% 45%,rgb(30,24,36),rgb(8,6,12));transition:opacity .5s}
 .map-radar.off{opacity:0;pointer-events:none}
 .map-radar p{margin:8px 0 0;font-weight:700}.map-radar small{color:var(--muted);font-size:.74rem}
 .rd{position:relative;width:96px;height:96px}
@@ -798,6 +798,10 @@ header.top.scrolled{background:rgba(10,8,14,.72)}
 .rd b{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--gold-grad);box-shadow:0 0 20px rgba(242,217,166,.9)}
 @keyframes radar{0%{transform:scale(.15);opacity:1}100%{transform:scale(1);opacity:0}}
 .acc-loc .cf-map{height:130px}
+.gh-ico{display:grid;place-items:center;padding:4px 0}.gh-ico .rd{width:70px;height:70px}
+.rd.idle i{animation-duration:3.2s}
+.map-radar .btn{margin-top:10px;padding:13px 22px}
+.map-radar .lnk{margin-top:6px;font-size:.82rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}.rv{opacity:1;transform:none;filter:none}}
 </style>
 
@@ -1606,7 +1610,7 @@ var DM={el:null,map:null,pin:null,geoT:null};
 function pinIcon(L){ return L.divIcon({className:"gpin",html:'<span class="gp-pulse"></span><span class="gp-body"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.6"/></svg></span><span class="gp-shadow"></span>',iconSize:[44,56],iconAnchor:[22,52]}); }
 function deliveryMap(slot, d){
   if(!DM.el){ DM.el=document.createElement("div"); DM.el.className="mapbox";
-    DM.el.innerHTML='<div class="map3d"><div id="dmap"></div></div><div class="map-top"><span class="map-chip" id="mapChip">Localisation en cours…</span></div><button type="button" class="map-loc" id="locMe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg><span>Me localiser</span></button><div class="map-glow"></div><div class="map-radar" id="mapRadar"><div class="rd"><i></i><i></i><i></i><b></b></div><p>Recherche de votre position…</p><small>Autorisez la localisation si votre téléphone le demande</small></div>'; }
+    DM.el.innerHTML='<div class="map3d"><div id="dmap"></div></div><div class="map-top"><span class="map-chip" id="mapChip">Localisation en cours…</span></div><button type="button" class="map-loc" id="locMe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg><span>Me localiser</span></button><div class="map-glow"></div><div class="map-radar" id="mapRadar"><div class="rd"><i></i><i></i><i></i><b></b></div><p id="rdT">Recherche de votre position…</p><small id="rdS">Autorisez la localisation si votre téléphone le demande</small><button type="button" class="btn primary" id="rdGo" hidden>📍 Utiliser ma position</button><button type="button" class="lnk" id="rdSkip" hidden>Placer l\'épingle moi-même</button></div>'; }
   slot.appendChild(DM.el);
   var chip=DM.el.querySelector("#mapChip");
   function setChip(t,ok){ chip.innerHTML=t; chip.classList.toggle("ok",!!ok); }
@@ -1631,18 +1635,29 @@ function deliveryMap(slot, d){
       function locate(auto){
         var b=DM.el.querySelector("#locMe"), lbl=b.querySelector("span"), rad=DM.el.querySelector("#mapRadar");
         if(!navigator.geolocation){ rad.classList.add("off"); if(!auto) toast("Localisation indisponible sur cet appareil"); return; }
+        if(window.GraceShop&&GraceShop.allowed&&GraceShop.allowed()&&!GraceShop.gpsOn()){ rad.classList.add("off"); setChip("GPS éteint : activez-le pour vous localiser"); gpsHelp(2); return; }
         b.classList.add("busy"); lbl.textContent="Recherche…"; if(!d.lat) rad.classList.remove("off");
         function ok(p){ b.classList.remove("busy"); lbl.textContent="Ma position"; rad.classList.add("off"); place([p.coords.latitude,p.coords.longitude],true); saveLoc(d); }
         function fail(e){ b.classList.remove("busy"); lbl.textContent="Réessayer"; rad.classList.add("off");
           var m=e&&e.code===1?"Localisation bloquée : touchez la carte sur votre maison":e&&e.code===2?"GPS éteint : activez la localisation du téléphone":"Position introuvable : touchez la carte sur votre maison";
-          setChip(m); if(!auto) gpsHelp(e&&e.code); }
+          setChip(m); if(!auto||window.GraceShop) gpsHelp(e&&e.code); }
         navigator.geolocation.getCurrentPosition(ok,function(e){
           if(e&&e.code===3){ navigator.geolocation.getCurrentPosition(ok,fail,{enableHighAccuracy:false,timeout:20000,maximumAge:120000}); return; }
           fail(e); },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
       }
       DM.el.querySelector("#locMe").onclick=function(){ locate(false); };
-      if(d.lat){ place([d.lat,d.lng]); DM.el.querySelector("#mapRadar").classList.add("off"); DM.el.querySelector("#locMe span").textContent="Ma position"; }
-      else locate(true);
+      window.__gpsRetry=function(){ if(document.contains(DM.el)) locate(false); };
+      var rad=DM.el.querySelector("#mapRadar");
+      DM.el.querySelector("#rdGo").onclick=function(){ this.hidden=true; DM.el.querySelector("#rdSkip").hidden=true; $("#rdT").textContent="Recherche de votre position…"; locate(false); };
+      DM.el.querySelector("#rdSkip").onclick=function(){ rad.classList.add("off"); setChip("Touchez la carte sur votre maison"); };
+      function askFirst(){ // dans Chrome : la cliente touche le bouton, la demande d'autorisation est alors acceptée normalement
+        $("#rdT").textContent="Où doit-on vous livrer ?"; $("#rdS").textContent="Touchez le bouton : votre position s'affiche sur la carte";
+        DM.el.querySelector("#rdGo").hidden=false; DM.el.querySelector("#rdSkip").hidden=false; rad.querySelector(".rd").classList.add("idle");
+      }
+      if(d.lat){ place([d.lat,d.lng]); rad.classList.add("off"); DM.el.querySelector("#locMe span").textContent="Ma position"; }
+      else if(window.GraceShop) locate(true);
+      else if(navigator.permissions&&navigator.permissions.query){ navigator.permissions.query({name:"geolocation"}).then(function(st){ if(st.state==="granted") locate(true); else askFirst(); }).catch(askFirst); }
+      else askFirst();
     }
     setTimeout(function(){ DM.map.invalidateSize(); if(d.lat){ chipFor(); DM.map.setView([d.lat,d.lng],Math.max(DM.map.getZoom(),15),{animate:false}); } },80);
   }).catch(function(){ setChip("Carte indisponible : choisissez votre zone ci-dessous"); });
@@ -1656,14 +1671,24 @@ function revGeo(ll, d){
   }).catch(function(){});
 }
 function gpsHelp(code){
-  var app=/GraceShopApp/.test(navigator.userAgent), ios=/iPhone|iPad/.test(navigator.userAgent);
-  var steps=code===2?'<li>Ouvrez les <b>réglages rapides</b> du téléphone (glissez du haut de l\'écran).</li><li>Activez <b>Localisation</b> (ou GPS).</li><li>Revenez ici et touchez <b>Réessayer</b>.</li>':
-    app?'<li>Ouvrez <b>Paramètres</b> du téléphone → <b>Applications</b> → <b>Grace Shop</b>.</li><li>Touchez <b>Autorisations</b> → <b>Position</b> → <b>Autoriser</b>.</li><li>Vérifiez aussi que la <b>Localisation</b> du téléphone est activée.</li>':
-    ios?'<li>Ouvrez <b>Réglages</b> → <b>Confidentialité</b> → <b>Service de localisation</b>.</li><li>Activez-le, puis choisissez <b>Safari</b> → <b>Lorsque l\'app est active</b>.</li><li>Rechargez la page et touchez <b>Réessayer</b>.</li>':
-    '<li>Touchez le <b>cadenas</b> à gauche de l\'adresse du site (en haut).</li><li>Touchez <b>Autorisations</b> → <b>Position</b> → <b>Autoriser</b>.</li><li>Vérifiez que la <b>Localisation</b> du téléphone est activée, puis touchez <b>Réessayer</b>.</li>';
-  var box=document.createElement("div"); box.className="gpshelp"; box.innerHTML='<div class="gh-card"><b>Activer la localisation</b><ol>'+steps+'</ol><button class="btn primary" type="button">J\'ai compris</button><p class="note">Vous pouvez aussi simplement toucher la carte sur votre maison.</p></div>';
-  document.body.appendChild(box); box.querySelector("button").onclick=function(){ box.remove(); }; box.onclick=function(e){ if(e.target===box) box.remove(); };
+  var app=!!window.GraceShop, android=/Android/.test(navigator.userAgent), ios=/iPhone|iPad/.test(navigator.userAgent);
+  var title, text, act, actLbl;
+  if(app){ title=code===2?"Activez le GPS":"Autorisez la localisation"; text=code===2?"Le GPS du téléphone est éteint. Touchez le bouton : l'écran pour l'allumer s'ouvre directement, puis revenez ici.":"Touchez le bouton et choisissez « Autoriser ». Si la fenêtre ne s'affiche pas, l'écran des autorisations de Grace Shop s'ouvre : touchez Position puis Autoriser.";
+    actLbl=code===2?"Allumer le GPS":"Autoriser la localisation"; act=function(){ GraceShop.fixLocation(); }; }
+  else if(android&&code===2){ title="Activez le GPS"; text="Le GPS du téléphone est éteint. Touchez le bouton pour ouvrir le réglage, allumez-le puis revenez ici."; actLbl="Allumer le GPS";
+    act=function(){ window.__gpsPending=true; location.href="intent:#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end"; }; }
+  else if(code===2){ title="Activez la localisation"; text=ios?"Réglages → Confidentialité → Service de localisation : activez-le, puis revenez ici.":"Activez la localisation de votre appareil, puis revenez ici."; actLbl="Réessayer"; act=function(){ if(window.__gpsRetry) window.__gpsRetry(); }; }
+  else { title="Chrome a bloqué la position"; text=ios?"Réglages → Safari → Position → Demander, puis touchez Réessayer.":"Une seule fois : touchez le cadenas 🔒 en haut à gauche de l'adresse, puis Autorisations → Position → Autoriser. Ensuite touchez Réessayer."; actLbl="Réessayer"; act=function(){ if(window.__gpsRetry) window.__gpsRetry(); }; }
+  var box=document.createElement("div"); box.className="gpshelp";
+  box.innerHTML='<div class="gh-card"><div class="gh-ico"><div class="rd"><i></i><i></i><b></b></div></div><b>'+title+'</b><p class="note" style="margin:0">'+text+'</p><button class="btn primary big" type="button" id="ghGo">'+actLbl+'</button><button class="lnk" type="button" id="ghNo" style="align-self:center">Placer l\'épingle moi-même sur la carte</button></div>';
+  document.body.appendChild(box);
+  function close(){ box.remove(); }
+  box.querySelector("#ghGo").onclick=function(){ close(); act(); };
+  box.querySelector("#ghNo").onclick=close; box.onclick=function(e){ if(e.target===box) close(); };
 }
+// au retour des réglages, on relance la localisation toute seule
+window.addEventListener("graceResume",function(){ if(window.GraceShop&&GraceShop.allowed()&&GraceShop.gpsOn()&&window.__gpsRetry) window.__gpsRetry(); });
+document.addEventListener("visibilitychange",function(){ if(!document.hidden&&window.__gpsRetry&&window.__gpsPending){ window.__gpsPending=false; window.__gpsRetry(); } });
 function saveLoc(d){
   store.set("grace-client",d);
   if(!(sb&&cloud&&cloud.user)) return;

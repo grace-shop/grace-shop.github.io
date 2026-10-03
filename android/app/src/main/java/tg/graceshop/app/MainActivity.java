@@ -5,6 +5,10 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.location.LocationManager;
+import android.provider.Settings;
+import android.webkit.JavascriptInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -28,6 +32,48 @@ public class MainActivity extends Activity {
     private static final int ASK_GPS = 42;
     private GeolocationPermissions.Callback gpsCb;
     private String gpsOrigin;
+    private static final int ASK_GPS2 = 43;
+
+    /** Pont appelé par la boutique : vérifie et active la localisation sans que la cliente cherche dans les réglages. */
+    public class Bridge {
+        @JavascriptInterface public boolean gpsOn() {
+            LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+            return lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+        }
+        @JavascriptInterface public boolean allowed() {
+            return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        }
+        @JavascriptInterface public void fixLocation() {
+            runOnUiThread(() -> {
+                SharedPreferences sp = getSharedPreferences("gs", MODE_PRIVATE);
+                if (!allowed()) {
+                    boolean asked = sp.getBoolean("gpsAsked", false);
+                    if (!asked || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                        sp.edit().putBoolean("gpsAsked", true).apply();
+                        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, ASK_GPS2);
+                    } else {
+                        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+                        try { startActivity(i); } catch (Exception ignored) { }
+                    }
+                } else if (!gpsOn()) {
+                    try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); } catch (Exception ignored) { }
+                } else {
+                    resumeWeb();
+                }
+            });
+        }
+    }
+
+    private void resumeWeb() {
+        if (web != null) web.evaluateJavascript("window.dispatchEvent(new Event('graceResume'))", null);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        resumeWeb();
+    }
 
     private WebView web;
     private ValueCallback<Uri[]> pending;
@@ -46,6 +92,7 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setGeolocationEnabled(true);
+        web.addJavascriptInterface(new Bridge(), "GraceShop");
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
@@ -143,6 +190,8 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
+        if (req == ASK_GPS2) { getSharedPreferences("gs", MODE_PRIVATE).edit().putBoolean("gpsAsked", true).apply(); resumeWeb(); return; }
+        if (req == ASK_GPS) getSharedPreferences("gs", MODE_PRIVATE).edit().putBoolean("gpsAsked", true).apply();
         if (req == ASK_GPS && gpsCb != null) {
             boolean ok = false;
             for (int r : res) if (r == PackageManager.PERMISSION_GRANTED) ok = true;
