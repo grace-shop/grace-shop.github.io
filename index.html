@@ -755,6 +755,36 @@ header.top.scrolled{background:rgba(10,8,14,.72)}
 .tabbar{background:rgba(10,8,14,.7)!important}
 .field input,.field select,.field textarea,.promo input,select.sort,.telrow{background:rgba(255,255,255,.04)}
 .zone-sel option,select option{background:#141118}
+
+/* ===== carte de livraison ===== */
+.mapslot{min-height:250px}
+.mapbox{position:relative;height:260px;border-radius:22px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 60px -30px rgba(0,0,0,.9),0 0 50px -20px rgba(217,178,111,.4);animation:mapIn .7s cubic-bezier(.2,.7,.2,1)}
+@keyframes mapIn{from{transform:perspective(900px) rotateX(25deg) translateY(16px);opacity:0}}
+.map3d{position:absolute;inset:0}
+#dmap,.cf-map{background:#0d0b10}
+#dmap{position:absolute;inset:0}
+.mapbox .leaflet-tile-pane,.cf-map .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.85) contrast(.92) saturate(.55) sepia(.25)}
+.map-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 0%,transparent 55%,rgba(7,6,10,.65)),linear-gradient(180deg,rgba(7,6,10,.5),transparent 28%,transparent 75%,rgba(7,6,10,.55));z-index:400}
+.map-top{position:absolute;left:10px;right:10px;top:10px;z-index:500;display:flex;justify-content:center;pointer-events:none}
+.map-chip{pointer-events:auto;background:rgba(16,13,20,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:.78rem;color:var(--muted);text-align:center;box-shadow:0 10px 30px -10px rgba(0,0,0,.8)}
+.map-chip.ok{color:var(--ink);border-color:rgba(217,178,111,.6)}
+.map-chip b{color:var(--gold-hi)}
+.map-loc{position:absolute;left:10px;bottom:10px;z-index:500;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:10px 16px;font-weight:800;font-size:.82rem;background:var(--gold-grad);color:var(--gold-ink);box-shadow:0 12px 30px -8px rgba(217,178,111,.6)}
+.map-loc svg{width:18px;height:18px}
+.map-loc.busy svg{animation:spin 1s linear infinite}
+.leaflet-control-zoom{border:0!important;box-shadow:0 10px 30px -10px rgba(0,0,0,.8)!important}
+.leaflet-control-zoom a{background:rgba(16,13,20,.85)!important;color:var(--gold-hi)!important;border-color:var(--line)!important}
+.leaflet-control-attribution{background:rgba(7,6,10,.6)!important;color:#8a8178!important;font-size:9px!important}
+.leaflet-control-attribution a{color:#b8a98f!important}
+.gp-body{position:absolute;left:6px;top:0;width:32px;height:44px;animation:pinDrop .6s cubic-bezier(.2,1.4,.3,1)}
+.gp-body svg{width:100%;height:100%;fill:#E3B865;stroke:#7a5520;stroke-width:.6;filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
+.gp-body circle{fill:#1b1408;stroke:none}
+.gp-pulse{position:absolute;left:12px;top:42px;width:20px;height:8px;border-radius:50%;background:rgba(242,217,166,.6);animation:pinPulse 1.8s ease-out infinite}
+.gp-shadow{position:absolute;left:14px;top:44px;width:16px;height:5px;border-radius:50%;background:rgba(0,0,0,.55);filter:blur(1px)}
+@keyframes pinDrop{from{transform:translateY(-40px);opacity:0}}
+@keyframes pinPulse{0%{transform:scale(.4);opacity:.9}100%{transform:scale(3.2);opacity:0}}
+.cf-map{position:relative;height:150px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+.btn.route{display:inline-block;padding:9px 14px;font-size:.84rem;align-self:flex-start}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}.rv{opacity:1;transform:none;filter:none}}
 </style>
 
@@ -1518,7 +1548,7 @@ function openCheckout(){
     '<div class="field"><label for="c-name">Nom complet</label><input id="c-name" autocomplete="name" value="'+esc(d.name)+'"></div>'+
     '<div class="two"><div class="field"><label for="c-phone">Téléphone</label><input id="c-phone" type="tel" inputmode="tel" placeholder="90 12 34 56" value="'+esc(d.phone)+'"></div>'+
     '</div>'+
-    (d.mode==="livraison"?'<div class="field"><label for="c-zone">Zone de livraison</label><select id="c-zone" class="zone-sel"><option value="">Choisissez votre quartier…</option>'+zones().map(function(z,i){return '<option value="'+i+'" '+(d.zone===i?"selected":"")+'>'+esc(z[0])+' — '+fcfa(z[1])+'</option>'}).join("")+'</select></div>'+
+    (d.mode==="livraison"?'<div><div class="lbl">Où livrer ?</div><div id="mapSlot" class="mapslot"></div></div>'+'<div class="field"><label for="c-zone">Zone de livraison</label><select id="c-zone" class="zone-sel"><option value="">Choisissez votre quartier…</option>'+zones().map(function(z,i){return '<option value="'+i+'" '+(d.zone===i?"selected":"")+'>'+esc(z[0])+' — '+fcfa(z[1])+'</option>'}).join("")+'</select></div>'+
     '<div class="field"><label for="c-area">Adresse ou repère</label><input id="c-area" placeholder="Ex. près de la pharmacie, maison bleue…" value="'+esc(d.area)+'"></div>':'')+
     '<div><div class="lbl">Réception</div><div class="choice">'+
       '<label><input type="radio" name="mode" value="livraison" '+(d.mode==="livraison"?"checked":"")+'><span><b>Livraison à domicile</b><small>'+(d.zone!=null?(deliveryFee()?fcfa(deliveryFee()):"Offerte"):"Selon votre quartier")+' · sous 24 à 48 h</small></span></label>'+
@@ -1529,6 +1559,7 @@ function openCheckout(){
     '<div class="df"><div class="tot"><span>Articles</span><span class="num">'+fcfa(subtotal())+'</span></div>'+(disc?'<div class="tot"><span>Réduction '+esc(promo.code)+'</span><span class="num ok-t">−'+fcfa(disc)+'</span></div>':'')+'<div class="tot"><span>Livraison</span><span class="num">'+(fee?fcfa(fee):"Gratuit")+'</span></div><div class="tot big"><span>Total</span><span class="num">'+fcfa(total)+'</span></div><button class="btn primary" id="confirm">'+(d.pay==="reserve"?"Confirmer ma commande · "+fcfa(total):"Commander et payer · "+fcfa(total))+'</button></div>',"drawer");
   function read(){ d.name=$("#c-name").value; d.phone=$("#c-phone").value; var ca=$("#c-area"); if(ca) d.area=ca.value; var cz=$("#c-zone"); if(cz) d.zone=cz.value===""?null:+cz.value; var m=layer.querySelector('[name=mode]:checked'); var p=layer.querySelector('[name=pay]:checked'); d.mode=m?m.value:"livraison"; d.pay=p?p.value:"reserve"; store.set("grace-client",d); }
   layer.querySelectorAll("input[type=radio],#c-zone").forEach(function(r){r.onchange=function(){read();openCheckout()}});
+  if($("#mapSlot")) deliveryMap($("#mapSlot"), d);
   layer.querySelectorAll("#co input:not([type=radio])").forEach(function(r){r.oninput=read});
   $("#applyCode").onclick=function(){ read(); d.code=$("#c-code").value.trim().toUpperCase(); store.set("grace-client",d); openCheckout(); };
   $("#co").onsubmit=function(e){e.preventDefault()};
@@ -1543,12 +1574,73 @@ function openCheckout(){
 }
 function promoOf(code){ code=String(code||"").trim().toUpperCase(); if(!code) return null; return (S.codes||[]).find(function(c){return c.code===code})||null; }
 function stepsHTML(k){ return '<div class="stepper">'+["Livraison","Paiement","Confirmation"].map(function(t,i){return '<span class="'+(i<k?"done":i===k?"on":"")+'"><i>'+(i<k?"✓":i+1)+'</i>'+t+'</span>'}).join('<b></b>')+'</div>'; }
+
+/* ---------- carte de livraison (OpenStreetMap, gratuit) ---------- */
+var LOME=[6.1375,1.2123];
+var ZONE_PTS=[[6.130,1.215],[6.152,1.232],[6.172,1.165],[6.212,1.198],[6.160,1.315]];
+function km(a,b){ var R=6371,t=Math.PI/180,dl=(b[0]-a[0])*t,dg=(b[1]-a[1])*t,x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dg/2)*Math.sin(dg/2); return 2*R*Math.asin(Math.sqrt(x)); }
+function zoneOf(ll){
+  var Z=zones(); if(!S.zones||!S.zones.length){ if(km(ll,LOME)>13) return Z.length-1; var bi=0,bd=1e9; ZONE_PTS.forEach(function(p,i){ var dd=km(ll,p); if(dd<bd){bd=dd;bi=i;} }); return bi; }
+  return null;
+}
+var LEAF=null;
+function leafletCSS(){ if(document.getElementById("leafcss")) return; var l=document.createElement("link"); l.id="leafcss"; l.rel="stylesheet"; l.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(l); }
+function leaflet(){ leafletCSS(); if(window.L&&window.L.map) return Promise.resolve(window.L); if(LEAF) return LEAF;
+  LEAF=new Promise(function(ok,ko){
+    var sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"; sc.onload=function(){ ok(window.L); }; sc.onerror=ko; document.head.appendChild(sc); });
+  return LEAF; }
+var DM={el:null,map:null,pin:null,geoT:null};
+function pinIcon(L){ return L.divIcon({className:"gpin",html:'<span class="gp-pulse"></span><span class="gp-body"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.6"/></svg></span><span class="gp-shadow"></span>',iconSize:[44,56],iconAnchor:[22,52]}); }
+function deliveryMap(slot, d){
+  if(!DM.el){ DM.el=document.createElement("div"); DM.el.className="mapbox";
+    DM.el.innerHTML='<div class="map3d"><div id="dmap"></div></div><div class="map-top"><span class="map-chip" id="mapChip">Touchez la carte pour placer votre maison</span></div><button type="button" class="map-loc" id="locMe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg><span>Me localiser</span></button><div class="map-glow"></div>'; }
+  slot.appendChild(DM.el);
+  var chip=DM.el.querySelector("#mapChip");
+  function setChip(t,ok){ chip.innerHTML=t; chip.classList.toggle("ok",!!ok); }
+  function chipFor(){ var zn=(zones()[d.zone]||[""])[0]; setChip('📍 <b>'+esc(zn.split(" · ")[0]||"Position enregistrée")+'</b> · livraison '+(deliveryFee()?fcfa(deliveryFee()):"offerte"),true); }
+  function place(ll, fly){
+    var L=window.L; d.lat=+ll[0].toFixed(6); d.lng=+ll[1].toFixed(6); store.set("grace-client",d);
+    if(!DM.pin){ DM.pin=L.marker(ll,{icon:pinIcon(L),draggable:true}).addTo(DM.map); DM.pin.on("dragend",function(){ var p=DM.pin.getLatLng(); place([p.lat,p.lng]); }); }
+    else DM.pin.setLatLng(ll);
+    if(fly) DM.map.flyTo(ll,16,{duration:1.2});
+    var z=zoneOf(ll), changed=false;
+    if(z!=null&&d.zone!==z){ d.zone=z; changed=true; }
+    chipFor();
+    clearTimeout(DM.geoT); DM.geoT=setTimeout(function(){ revGeo(ll, d); },700);
+    if(changed){ store.set("grace-client",d); setTimeout(openCheckout,60); }
+  }
+  leaflet().then(function(L){
+    if(!DM.map){
+      DM.map=L.map(DM.el.querySelector("#dmap"),{zoomControl:false,attributionControl:true}).setView(d.lat?[d.lat,d.lng]:LOME,d.lat?16:12);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(DM.map);
+      L.control.zoom({position:"bottomright"}).addTo(DM.map);
+      DM.map.on("click",function(e){ place([e.latlng.lat,e.latlng.lng]); });
+      DM.el.querySelector("#locMe").onclick=function(){
+        if(!navigator.geolocation){ toast("Localisation indisponible sur cet appareil"); return; }
+        var b=this, lbl=b.querySelector("span"); b.classList.add("busy"); lbl.textContent="Recherche…";
+        navigator.geolocation.getCurrentPosition(function(p){ b.classList.remove("busy"); lbl.textContent="Me localiser"; place([p.coords.latitude,p.coords.longitude],true); },
+          function(){ b.classList.remove("busy"); lbl.textContent="Me localiser"; toast("Autorisez la localisation, ou touchez la carte"); },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+      };
+      if(d.lat) place([d.lat,d.lng]);
+    }
+    setTimeout(function(){ DM.map.invalidateSize(); if(d.lat){ chipFor(); DM.map.setView([d.lat,d.lng],Math.max(DM.map.getZoom(),15),{animate:false}); } },80);
+  }).catch(function(){ setChip("Carte indisponible : choisissez votre zone ci-dessous"); });
+}
+function revGeo(ll, d){
+  fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=fr&lat="+ll[0]+"&lon="+ll[1]).then(function(r){return r.json()}).then(function(j){
+    var a=j&&j.address||{}, txt=[a.road,a.suburb||a.neighbourhood||a.quarter||a.city_district,a.city||a.town||a.village].filter(Boolean).join(", ");
+    if(!txt) return; d.geo=txt;
+    var inp=$("#c-area"); if(inp&&!inp.value.trim()){ inp.value=txt; d.area=txt; }
+    store.set("grace-client",d);
+  }).catch(function(){});
+}
+function mapsLink(o){ return o.lat?"https://www.google.com/maps/dir/?api=1&destination="+o.lat+","+o.lng:""; }
 function randKey(){ var a=new Uint8Array(16); try{ crypto.getRandomValues(a); }catch(e){ for(var i=0;i<16;i++) a[i]=Math.random()*256|0; } return Array.prototype.map.call(a,function(b){return ("0"+b.toString(16)).slice(-2)}).join(""); }
 function showReceipt(total, fee, disc, promo){
   var d=draft, ref="GS"+Date.now().toString(36).slice(-5).toUpperCase(), key=randKey(), lines=cartLines();
   var payLabel={reserve:"À la réception",tmoney:"T-Money",flooz:"Flooz"}[d.pay]||"À la réception";
   var zoneName=d.mode==="livraison"?((zones()[d.zone]||[""])[0]):"";
-  var o={ref:ref,key:key,date:Date.now(),name:d.name,phone:d.phone,mode:d.mode,zone:zoneName,area:d.mode==="livraison"?d.area:"",payKind:d.pay,pay:payLabel,
+  var o={lat:d.mode==="livraison"&&d.lat?d.lat:null,lng:d.mode==="livraison"&&d.lat?d.lng:null,ref:ref,key:key,date:Date.now(),name:d.name,phone:d.phone,mode:d.mode,zone:zoneName,area:d.mode==="livraison"?d.area:"",payKind:d.pay,pay:payLabel,
     items:lines.map(function(x){return {id:x.p.id,name:x.p.name,size:x.l.size,color:x.l.color,qty:x.l.qty,price:x.p.price}}),
     subtotal:subtotal(),fee:fee,discount:disc,total:total,promo:promo?promo.code:"",status:"nouvelle",pay_status:"en attente",count:lines.reduce(function(s,x){return s+x.l.qty},0)};
   state.orders.unshift(o); state.orders=state.orders.slice(0,30); store.set("grace-orders",state.orders); updOrders();
@@ -1559,7 +1651,7 @@ function showReceipt(total, fee, disc, promo){
 function orderMsg(o, extra){
   return "Bonjour "+S.shopName+",\nCommande "+o.ref+"\n\n"+o.items.map(function(x){return "• "+x.name+" ("+x.size+", "+x.color+") ×"+x.qty+" = "+fcfa(x.price*x.qty)}).join("\n")+
     (o.discount?"\nCode "+o.promo+" : −"+fcfa(o.discount):"")+"\n\n"+(o.mode==="livraison"?"Livraison : "+(o.fee?fcfa(o.fee):"offerte")+" — "+o.zone+(o.area?" ("+o.area+")":""):"Retrait en boutique")+
-    "\nTotal : "+fcfa(o.total)+"\nPaiement : "+o.pay+(extra?"\n"+extra:"")+"\n\nNom : "+o.name+"\nTél : "+o.phone;
+    (o.lat?"\nPosition : "+mapsLink(o):"")+"\nTotal : "+fcfa(o.total)+"\nPaiement : "+o.pay+(extra?"\n"+extra:"")+"\n\nNom : "+o.name+"\nTél : "+o.phone;
 }
 function fnCall(action, body){
   return fetch(CFG.url+"/functions/v1/pay?action="+action,{method:"POST",headers:{"Content-Type":"application/json",apikey:CFG.key},body:JSON.stringify(body||{})})
@@ -1662,6 +1754,7 @@ function showDone(o){
       '<div class="cf-sum"><div><span>Articles</span><span class="num">'+fcfa(o.subtotal)+'</span></div>'+(o.discount?'<div><span>Réduction '+esc(o.promo)+'</span><span class="num ok-t">−'+fcfa(o.discount)+'</span></div>':'')+
       '<div><span>'+(o.mode==="livraison"?"Livraison":"Retrait en boutique")+'</span><span class="num">'+(o.fee?fcfa(o.fee):"Offert")+'</span></div>'+
       '<div class="tot"><span>Total</span><b class="num">'+fcfa(o.total)+'</b></div></div>'+payChip+'</div>'+
+    (o.lat?'<div class="cf-map" id="cfMap"></div>':'')+
     '<div class="cf-info"><div><span class="eyebrow">'+(o.mode==="livraison"?"Livraison":"Retrait")+'</span><p>'+(o.mode==="livraison"?esc(o.zone)+(o.area?"<br>"+esc(o.area):"")+'<br><span class="note">Sous 24 à 48 h · la boutique vous appelle avant de passer</span>':esc(S.city)+'<br><span class="note">La boutique vous prévient quand c\'est prêt</span>')+'</p></div>'+
       '<div><span class="eyebrow">Contact</span><p>'+esc(o.name)+'<br>+228 '+esc(pretty(phoneDigits(o.phone)))+'</p></div></div>'+
     (o.sent===false&&wa?'<a class="btn light big" href="'+wa+'" target="_blank" rel="noopener">Envoyer la commande sur WhatsApp</a>':'')+
@@ -1671,6 +1764,7 @@ function showDone(o){
   $("#cfGo").onclick=closeLayer;
   $("#cfTrack").onclick=function(){ openOrders(); };
   confetti(layer.querySelector(".cf-fx"));
+  if(o.lat) leaflet().then(function(L){ var el=$("#cfMap"); if(!el) return; var m=L.map(el,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,boxZoom:false,keyboard:false}).setView([o.lat,o.lng],15); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(m); L.marker([o.lat,o.lng],{icon:pinIcon(L)}).addTo(m); setTimeout(function(){m.invalidateSize()},120); }).catch(function(){});
 }
 function thumbOf(p){ var ph=photos(p); if(ph.length) return '<img src="'+srcOf(ph[0])+'" alt="">'; var k="-cf"+Math.random().toString(36).slice(2,7); return visual(p).replace(/id="([^"]+)"/g,'id="$1'+k+'"').replace(/url\(#([^)]+)\)/g,'url(#$1'+k+')').replace(/href="#([^"]+)"/g,function(m,id){ return /^(logo|i-|lg-)/.test(id)?m:'href="#'+id+k+'"'; }); }
 function confetti(c){
@@ -2151,12 +2245,12 @@ function cloudPublish(){
 /* --- commande enregistrée en ligne --- */
 function cloudOrder(o){
   if(!sb) return Promise.resolve(false);
-  var row={ref:o.ref,client_key:o.key,name:String(o.name).slice(0,120),phone:String(o.phone).slice(0,30),mode:o.mode,zone:(o.zone||"").slice(0,120),area:(o.area||"").slice(0,300),pay:(o.pay||"").slice(0,60),pay_method:o.payKind==="reserve"?"À la réception":o.pay,items:o.items,subtotal:o.subtotal,fee:o.fee,discount:o.discount,total:Math.round(o.total),promo:o.promo||null};
+  var row={ref:o.ref,client_key:o.key,name:String(o.name).slice(0,120),phone:String(o.phone).slice(0,30),mode:o.mode,zone:(o.zone||"").slice(0,120),area:(o.area||"").slice(0,300),pay:(o.pay||"").slice(0,60),pay_method:o.payKind==="reserve"?"À la réception":o.pay,lat:o.lat,lng:o.lng,items:o.items,subtotal:o.subtotal,fee:o.fee,discount:o.discount,total:Math.round(o.total),promo:o.promo||null};
   if(cloud.user) row.user_id=cloud.user.id;
   var t=new Promise(function(r){ setTimeout(function(){ r({error:{message:"timeout"}}); },12000); });
   return Promise.race([sb.from("orders").insert(row),t]).then(function(r){
     // base pas encore mise à jour : on renvoie la commande sans les champs de paiement
-    if(r.error&&/column|schema cache/i.test(r.error.message||"")){ var legacy=Object.assign({},row); delete legacy.client_key; delete legacy.pay_method; return Promise.race([sb.from("orders").insert(legacy),t]); }
+    if(r.error&&/column|schema cache/i.test(r.error.message||"")){ var legacy=Object.assign({},row); delete legacy.client_key; delete legacy.pay_method; delete legacy.lat; delete legacy.lng; if(row.lat) legacy.area=((legacy.area||"")+" · GPS "+row.lat+","+row.lng).slice(0,300); return Promise.race([sb.from("orders").insert(legacy),t]); }
     return r;
   }).then(function(r){
     if(r.error) return false;
@@ -2270,7 +2364,7 @@ function openDashboard(){
       var wa=o.phone?"https://wa.me/228"+phoneDigits(o.phone)+"?text="+encodeURIComponent("Bonjour "+o.name.split(" ")[0]+", ici "+S.shopName+" à propos de votre commande "+o.ref+"."):"";
       return '<div class="order dorder"><div class="oh"><span class="ref-s gold-t">'+esc(o.ref)+'</span><span class="note">'+fmtD(o.created_at)+'</span></div>'+
         '<div class="dcl"><b>'+esc(o.name)+'</b> · <a class="lnk" href="tel:+228'+esc(phoneDigits(o.phone))+'">'+esc(pretty(phoneDigits(o.phone)))+'</a>'+(wa?' · <a class="lnk" href="'+wa+'" target="_blank" rel="noopener">WhatsApp ↗</a>':'')+(o.user_id?' <span class="pill">Compte</span>':'')+'</div>'+
-        '<div class="note">'+(o.mode==="retrait"?"Retrait en boutique":"Livraison · "+esc(o.zone||"")+(o.area?" — "+esc(o.area):""))+'</div>'+
+        '<div class="note">'+(o.mode==="retrait"?"Retrait en boutique":"Livraison · "+esc(o.zone||"")+(o.area?" — "+esc(o.area):""))+'</div>'+(o.lat?'<a class="btn ghost route" href="'+mapsLink(o)+'" target="_blank" rel="noopener">🧭 Itinéraire vers la cliente</a>':'')+
         '<div class="note">'+(o.items||[]).map(function(it){return esc(it.name)+' ('+esc(it.size||"")+(it.color?", "+esc(it.color):"")+') ×'+it.qty}).join("<br>")+'</div>'+
         '<div class="oh"><b class="num">'+fcfa(o.total)+'</b>'+payChip(o)+'</div>'+(o.promo?'<div class="note">Code promo '+esc(o.promo)+'</div>':'')+
         (o.pay_status!=="payé"&&o.status!=="annulée"&&o.status!=="payée"&&o.status!=="livrée"?'<button class="btn ghost paidbtn" data-paid="'+o.id+'">✓ Paiement reçu</button>':'')+
