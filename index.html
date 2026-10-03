@@ -785,6 +785,16 @@ header.top.scrolled{background:rgba(10,8,14,.72)}
 @keyframes pinPulse{0%{transform:scale(.4);opacity:.9}100%{transform:scale(3.2);opacity:0}}
 .cf-map{position:relative;height:150px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
 .btn.route{display:inline-block;padding:9px 14px;font-size:.84rem;align-self:flex-start}
+
+.map-radar{position:absolute;inset:0;z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;background:radial-gradient(circle at 50% 45%,rgba(30,24,36,.92),rgba(8,6,12,.97));transition:opacity .5s}
+.map-radar.off{opacity:0;pointer-events:none}
+.map-radar p{margin:8px 0 0;font-weight:700}.map-radar small{color:var(--muted);font-size:.74rem}
+.rd{position:relative;width:96px;height:96px}
+.rd i{position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(242,217,166,.6);animation:radar 2.2s ease-out infinite}
+.rd i:nth-child(2){animation-delay:.7s}.rd i:nth-child(3){animation-delay:1.4s}
+.rd b{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--gold-grad);box-shadow:0 0 20px rgba(242,217,166,.9)}
+@keyframes radar{0%{transform:scale(.15);opacity:1}100%{transform:scale(1);opacity:0}}
+.acc-loc .cf-map{height:130px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}.rv{opacity:1;transform:none;filter:none}}
 </style>
 
@@ -1593,16 +1603,16 @@ var DM={el:null,map:null,pin:null,geoT:null};
 function pinIcon(L){ return L.divIcon({className:"gpin",html:'<span class="gp-pulse"></span><span class="gp-body"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.6"/></svg></span><span class="gp-shadow"></span>',iconSize:[44,56],iconAnchor:[22,52]}); }
 function deliveryMap(slot, d){
   if(!DM.el){ DM.el=document.createElement("div"); DM.el.className="mapbox";
-    DM.el.innerHTML='<div class="map3d"><div id="dmap"></div></div><div class="map-top"><span class="map-chip" id="mapChip">Touchez la carte pour placer votre maison</span></div><button type="button" class="map-loc" id="locMe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg><span>Me localiser</span></button><div class="map-glow"></div>'; }
+    DM.el.innerHTML='<div class="map3d"><div id="dmap"></div></div><div class="map-top"><span class="map-chip" id="mapChip">Localisation en cours…</span></div><button type="button" class="map-loc" id="locMe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg><span>Me localiser</span></button><div class="map-glow"></div><div class="map-radar" id="mapRadar"><div class="rd"><i></i><i></i><i></i><b></b></div><p>Recherche de votre position…</p><small>Autorisez la localisation si votre téléphone le demande</small></div>'; }
   slot.appendChild(DM.el);
   var chip=DM.el.querySelector("#mapChip");
   function setChip(t,ok){ chip.innerHTML=t; chip.classList.toggle("ok",!!ok); }
   function chipFor(){ var zn=(zones()[d.zone]||[""])[0]; setChip('📍 <b>'+esc(zn.split(" · ")[0]||"Position enregistrée")+'</b> · livraison '+(deliveryFee()?fcfa(deliveryFee()):"offerte"),true); }
   function place(ll, fly){
     var L=window.L; d.lat=+ll[0].toFixed(6); d.lng=+ll[1].toFixed(6); store.set("grace-client",d);
-    if(!DM.pin){ DM.pin=L.marker(ll,{icon:pinIcon(L),draggable:true}).addTo(DM.map); DM.pin.on("dragend",function(){ var p=DM.pin.getLatLng(); place([p.lat,p.lng]); }); }
+    if(!DM.pin){ DM.pin=L.marker(ll,{icon:pinIcon(L),draggable:true}).addTo(DM.map); DM.pin.on("dragend",function(){ var p=DM.pin.getLatLng(); place([p.lat,p.lng]); saveLoc(d); }); }
     else DM.pin.setLatLng(ll);
-    if(fly) DM.map.flyTo(ll,16,{duration:1.2});
+    if(fly) DM.map.flyTo(ll,17,{duration:1.4});
     var z=zoneOf(ll), changed=false;
     if(z!=null&&d.zone!==z){ d.zone=z; changed=true; }
     chipFor();
@@ -1611,17 +1621,20 @@ function deliveryMap(slot, d){
   }
   leaflet().then(function(L){
     if(!DM.map){
-      DM.map=L.map(DM.el.querySelector("#dmap"),{zoomControl:false,attributionControl:true}).setView(d.lat?[d.lat,d.lng]:LOME,d.lat?16:12);
+      DM.map=L.map(DM.el.querySelector("#dmap"),{zoomControl:false,attributionControl:true}).setView(d.lat?[d.lat,d.lng]:LOME,d.lat?17:15);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(DM.map);
       L.control.zoom({position:"bottomright"}).addTo(DM.map);
-      DM.map.on("click",function(e){ place([e.latlng.lat,e.latlng.lng]); });
-      DM.el.querySelector("#locMe").onclick=function(){
-        if(!navigator.geolocation){ toast("Localisation indisponible sur cet appareil"); return; }
-        var b=this, lbl=b.querySelector("span"); b.classList.add("busy"); lbl.textContent="Recherche…";
-        navigator.geolocation.getCurrentPosition(function(p){ b.classList.remove("busy"); lbl.textContent="Me localiser"; place([p.coords.latitude,p.coords.longitude],true); },
-          function(){ b.classList.remove("busy"); lbl.textContent="Me localiser"; toast("Autorisez la localisation, ou touchez la carte"); },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
-      };
-      if(d.lat) place([d.lat,d.lng]);
+      DM.map.on("click",function(e){ place([e.latlng.lat,e.latlng.lng]); saveLoc(d); });
+      function locate(auto){
+        var b=DM.el.querySelector("#locMe"), lbl=b.querySelector("span"), rad=DM.el.querySelector("#mapRadar");
+        if(!navigator.geolocation){ rad.classList.add("off"); if(!auto) toast("Localisation indisponible sur cet appareil"); return; }
+        b.classList.add("busy"); lbl.textContent="Recherche…"; if(!d.lat) rad.classList.remove("off");
+        navigator.geolocation.getCurrentPosition(function(p){ b.classList.remove("busy"); lbl.textContent="Ma position"; rad.classList.add("off"); place([p.coords.latitude,p.coords.longitude],true); saveLoc(d); },
+          function(){ b.classList.remove("busy"); lbl.textContent="Me localiser"; rad.classList.add("off"); setChip("Localisation refusée : touchez la carte sur votre maison"); if(!auto) toast("Autorisez la localisation dans votre navigateur"); },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+      }
+      DM.el.querySelector("#locMe").onclick=function(){ locate(false); };
+      if(d.lat){ place([d.lat,d.lng]); DM.el.querySelector("#mapRadar").classList.add("off"); DM.el.querySelector("#locMe span").textContent="Ma position"; }
+      else locate(true);
     }
     setTimeout(function(){ DM.map.invalidateSize(); if(d.lat){ chipFor(); DM.map.setView([d.lat,d.lng],Math.max(DM.map.getZoom(),15),{animate:false}); } },80);
   }).catch(function(){ setChip("Carte indisponible : choisissez votre zone ci-dessous"); });
@@ -1631,8 +1644,13 @@ function revGeo(ll, d){
     var a=j&&j.address||{}, txt=[a.road,a.suburb||a.neighbourhood||a.quarter||a.city_district,a.city||a.town||a.village].filter(Boolean).join(", ");
     if(!txt) return; d.geo=txt;
     var inp=$("#c-area"); if(inp&&!inp.value.trim()){ inp.value=txt; d.area=txt; }
-    store.set("grace-client",d);
+    store.set("grace-client",d); saveLoc(d);
   }).catch(function(){});
+}
+function saveLoc(d){
+  store.set("grace-client",d);
+  if(!(sb&&cloud&&cloud.user)) return;
+  clearTimeout(saveLoc.t); saveLoc.t=setTimeout(function(){ sb.auth.updateUser({data:{loc:{lat:d.lat,lng:d.lng,area:d.area||d.geo||"",zone:d.zone,at:Date.now()}}}).then(function(){}); },1500);
 }
 function mapsLink(o){ return o.lat?"https://www.google.com/maps/dir/?api=1&destination="+o.lat+","+o.lng:""; }
 function randKey(){ var a=new Uint8Array(16); try{ crypto.getRandomValues(a); }catch(e){ for(var i=0;i<16;i++) a[i]=Math.random()*256|0; } return Array.prototype.map.call(a,function(b){return ("0"+b.toString(16)).slice(-2)}).join(""); }
@@ -2188,6 +2206,7 @@ function onSession(session){
     // favoris : on réunit ceux du téléphone et ceux du compte
     var f=(cloud.profile.favs||[]).concat(state.favs).filter(function(x,i,a){return a.indexOf(x)===i&&DATA.products.some(function(p){return p.id===x})});
     var changed=f.length!==(cloud.profile.favs||[]).length; state.favs=f; saveFavs(true); if(changed) syncFavs();
+    var ml=(u.user_metadata||{}).loc; if(ml&&ml.lat&&!draft.lat){ draft.lat=ml.lat; draft.lng=ml.lng; if(ml.area&&!draft.area) draft.area=ml.area; if(ml.zone!=null&&draft.zone==null) draft.zone=ml.zone; store.set("grace-client",draft); }
     if(cloud.profile.name&&!draft.name) draft.name=cloud.profile.name;
     if(cloud.profile.phone&&!draft.phone) draft.phone=cloud.profile.phone;
     state.canEdit=cloud.staff; $("#sellerBtn").hidden=!cloud.staff; renderBanner(); renderGrid();
@@ -2289,12 +2308,17 @@ function openAccount(view){
   openLayer('<div class="dh"><h2>Bonjour '+esc((p.name||"").split(" ")[0]||"à vous")+'</h2><button class="x" data-close aria-label="Fermer">×</button></div><div class="db">'+
     (cloud.staff?'<div class="staffbox"><span class="eyebrow">Espace propriétaire</span><div class="row"><button class="btn primary" id="goDash">Commandes'+(cloud.newCount?' · '+cloud.newCount+' nouvelle'+(cloud.newCount>1?'s':''):'')+'</button><button class="btn ghost" id="goSell">Gérer les articles</button></div>'+(cloud.owner?'<button class="btn ghost" id="goTeam">Mon équipe · ajouter une gestionnaire</button>':'')+'</div>':'')+
     clubCard()+
+    '<div class="acc-loc"><div class="lbl">Mon adresse de livraison</div>'+(draft.lat?'<div class="cf-map" id="accMap"></div><p class="note" style="margin:6px 0 0">📍 '+esc(draft.area||((zones()[draft.zone]||[""])[0])||"Position enregistrée")+'</p>':'<p class="note" style="margin:0">Pas encore de position enregistrée.</p>')+'<button class="btn ghost" id="accLoc" style="margin-top:8px">'+(draft.lat?"Mettre à jour ma position":"📍 Enregistrer ma position")+'</button></div>'+
     '<div><div class="lbl">Mes commandes</div>'+orders+'</div>'+
     '<details class="acc-edit"><summary>Mes informations</summary><div class="field"><label for="a-name">Nom complet</label><input id="a-name" value="'+esc(p.name||"")+'" autocomplete="name"></div><div class="field"><label for="a-phone">Téléphone</label><input id="a-phone" type="tel" value="'+esc(p.phone||"")+'"></div><p class="note">Identifiant : '+esc(isPhoneId(email)?"+228 "+pretty(email.slice(3,11)):email)+'</p><button class="btn ghost" id="saveProf">Enregistrer</button></details>'+
     '</div><div class="df"><button class="btn ghost" id="logout">Se déconnecter</button></div>',"drawer");
   var gd=$("#goDash"); if(gd) gd.onclick=openDashboard;
   var gs=$("#goSell"); if(gs) gs.onclick=function(){ closeLayer(); tab="items"; openSeller(); };
   var gt=$("#goTeam"); if(gt) gt.onclick=openTeam;
+  if(draft.lat) leaflet().then(function(L){ var el=$("#accMap"); if(!el) return; var m=L.map(el,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,boxZoom:false,keyboard:false}).setView([draft.lat,draft.lng],16); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(m); L.marker([draft.lat,draft.lng],{icon:pinIcon(L)}).addTo(m); setTimeout(function(){m.invalidateSize()},120); }).catch(function(){});
+  $("#accLoc").onclick=function(){ var b=this; if(!navigator.geolocation){ toast("Localisation indisponible"); return; } b.disabled=true; b.textContent="Recherche de votre position…";
+    navigator.geolocation.getCurrentPosition(function(p){ draft.lat=+p.coords.latitude.toFixed(6); draft.lng=+p.coords.longitude.toFixed(6); var z=zoneOf([draft.lat,draft.lng]); if(z!=null) draft.zone=z; draft.area=""; revGeo([draft.lat,draft.lng],draft); saveLoc(draft); toast("Position enregistrée ✓"); setTimeout(function(){ openAccount(); },900); },
+      function(){ b.disabled=false; b.textContent="📍 Enregistrer ma position"; toast("Autorisez la localisation dans votre navigateur"); },{enableHighAccuracy:true,timeout:15000}); };
   $("#saveProf").onclick=function(){ var nm=$("#a-name").value.trim().slice(0,120), ph=$("#a-phone").value.trim().slice(0,30); sb.from("profiles").upsert({id:cloud.user.id,name:nm,phone:ph}).then(function(r){ if(r.error){toast("Enregistrement impossible");return;} cloud.profile.name=nm; cloud.profile.phone=ph; draft.name=nm; draft.phone=ph; accLabel(); toast("Informations enregistrées"); }); };
   $("#logout").onclick=function(){ sb.auth.signOut().then(function(){ closeLayer(); toast("Vous êtes déconnectée"); }); };
 }
@@ -2338,6 +2362,7 @@ function accForm(){
       if(r.error) return showErr(authErr(r.error));
       if(su&&!r.data.session){ accMode="login"; accMsg="Compte créé. Confirmez votre email puis connectez-vous."; accForm(); return; }
       closeLayer(); toast(su?"Bienvenue chez "+S.shopName+" ✦":"Vous êtes connectée");
+      if(su&&navigator.geolocation&&!draft.lat) setTimeout(function(){ navigator.geolocation.getCurrentPosition(function(p){ draft.lat=+p.coords.latitude.toFixed(6); draft.lng=+p.coords.longitude.toFixed(6); var z=zoneOf([draft.lat,draft.lng]); if(z!=null) draft.zone=z; revGeo([draft.lat,draft.lng],draft); saveLoc(draft); toast("📍 Adresse de livraison enregistrée"); },function(){},{enableHighAccuracy:true,timeout:15000}); },1200);
     }).catch(function(e){ go.disabled=false; go.textContent=su?"Créer mon compte":"Se connecter"; showErr(authErr(e)); });
   };
 }
