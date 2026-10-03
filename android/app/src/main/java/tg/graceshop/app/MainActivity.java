@@ -53,8 +53,7 @@ public class MainActivity extends Activity {
                         sp.edit().putBoolean("gpsAsked", true).apply();
                         requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, ASK_GPS2);
                     } else {
-                        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
-                        try { startActivity(i); } catch (Exception ignored) { }
+                        openAppSettings();
                     }
                 } else if (!gpsOn()) {
                     try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); } catch (Exception ignored) { }
@@ -63,6 +62,12 @@ public class MainActivity extends Activity {
                 }
             });
         }
+    }
+
+    private void openAppSettings() {
+        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(i); } catch (Exception e) { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { } }
     }
 
     private void resumeWeb() {
@@ -190,7 +195,23 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
-        if (req == ASK_GPS2) { getSharedPreferences("gs", MODE_PRIVATE).edit().putBoolean("gpsAsked", true).apply(); resumeWeb(); return; }
+        if (req == ASK_GPS2) {
+            getSharedPreferences("gs", MODE_PRIVATE).edit().putBoolean("gpsAsked", true).apply();
+            boolean ok = false;
+            for (int r : res) if (r == PackageManager.PERMISSION_GRANTED) ok = true;
+            if (!ok && !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                // Android n'affiche plus la fenêtre : on ouvre directement l'écran des autorisations de l'app
+                openAppSettings();
+                return;
+            }
+            if (ok) {
+                LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                boolean on = lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+                if (!on) { try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); } catch (Exception ignored) { } return; }
+            }
+            resumeWeb();
+            return;
+        }
         if (req == ASK_GPS) getSharedPreferences("gs", MODE_PRIVATE).edit().putBoolean("gpsAsked", true).apply();
         if (req == ASK_GPS && gpsCb != null) {
             boolean ok = false;
